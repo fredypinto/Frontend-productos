@@ -1,0 +1,80 @@
+trigger:
+  branches:
+    include:
+    - refs/heads/test-ci
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: refs/heads/test-ci
+jobs:
+- job: Job_1
+  displayName: Agent job 1
+  pool:
+    vmImage: vs2017-win2016
+  steps:
+  - checkout: self
+    clean: true
+  - task: SonarQubePrepare@4
+    displayName: Prepare analysis on SonarQube
+    enabled: False
+    inputs:
+      SonarQube: cb99382a-6ccb-475b-867c-487480407374
+      scannerMode: CLI
+      configMode: manual
+      cliProjectKey: Portals-EvertecRules
+      cliProjectName: Portals-EvertecRules
+      extraProperties: "# Additional properties that will be passed to the scanner, \n# Put one key=value per line, example:\n# sonar.exclusions=**/*.bin\nsonar.branch.name=master\nsonar.sourceEncoding=UTF-8\nsonar.sources=src/app\nsonar.exclusions=**/node_modules/**, **/app-routing.module.ts\nsonar.exclusions=**/*.spec.js, src/test/*\nsonar.tests=src\nsonar.test.inclusions=**/*.spec.ts\nsonar.typescript.lcov.reportPaths=coverage/rules/lcov.info"
+  - task: NodeTool@0
+    displayName: Use Node 14.x
+    inputs:
+      versionSpec: 14.x
+      checkLatest: true
+  - task: Npm@1
+    displayName: Install -g @angular/cli@latest
+    inputs:
+      command: custom
+      workingDir: $(System.DefaultWorkingDirectory)
+      verbose: false
+      customCommand: install -g @angular/cli@latest
+  - task: Npm@1
+    displayName: Install Dependencies
+    inputs:
+      workingDir: $(System.DefaultWorkingDirectory)
+      verbose: false
+  - task: AngularCLI@1
+    displayName: ng build
+  - task: AngularCLI@1
+    displayName: ng build copy
+    enabled: False
+    inputs:
+      arguments: --configuration dev
+      prod: false
+  - task: AngularCLI@1
+    displayName: ng test
+    enabled: False
+    inputs:
+      command: test
+      arguments: --watch=false --code-coverage
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifact: dist'
+    inputs:
+      PathtoPublish: $(System.DefaultWorkingDirectory)/dist
+      ArtifactName: dist
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Dockerfile
+    inputs:
+      PathtoPublish: Dockerfile
+      ArtifactName: dist
+  - task: PublishBuildArtifacts@1
+    displayName: Publish default.conf
+    inputs:
+      PathtoPublish: default.conf
+      ArtifactName: dist
+  - task: SonarQubeAnalyze@4
+    displayName: Run Code Analysis
+    enabled: False
+  - task: SonarQubePublish@4
+    displayName: Publish Quality Gate Result
+    enabled: False
+...
